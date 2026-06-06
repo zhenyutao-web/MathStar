@@ -137,40 +137,52 @@
   function parseProblem(text) {
     const normalized = String(text || "").replace(/\s+/g, " ").trim();
     const match = normalized.match(
-      /(\d+)\s*([+\-\u2212\u00d7x*\/\u00f7])\s*(\d+)\s*=\s*\?/
+      /^(\d+)\s*([+\-\u2212\u00d7x*\/\u00f7])\s*(\d+)(?:\s*([+\-\u2212\u00d7x*\/\u00f7])\s*(\d+))?\s*=\s*\?$/
     );
 
     if (!match) return null;
 
-    const left = Number(match[1]);
+    const number1 = Number(match[1]);
     const symbol = match[2];
-    const right = Number(match[3]);
+    const number2 = Number(match[3]);
+    const secondSymbol = match[4] || "";
+    const number3 = match[5] === undefined ? null : Number(match[5]);
     let operation = "";
     let expectedAnswer = NaN;
+    const hasThirdNumber = number3 !== null;
+
+    if (hasThirdNumber && secondSymbol !== symbol) return null;
 
     if (symbol === "+") {
-      operation = "add";
-      expectedAnswer = left + right;
+      operation = hasThirdNumber ? "add3" : "add";
+      expectedAnswer = number1 + number2 + (hasThirdNumber ? number3 : 0);
     } else if (symbol === "-" || symbol === "\u2212") {
-      operation = "sub";
-      expectedAnswer = left - right;
+      operation = hasThirdNumber ? "sub3" : "sub";
+      expectedAnswer = number1 - number2 - (hasThirdNumber ? number3 : 0);
     } else if (symbol === "x" || symbol === "*" || symbol === "\u00d7") {
+      if (hasThirdNumber) return null;
       operation = "mul";
-      expectedAnswer = left * right;
+      expectedAnswer = number1 * number2;
     } else if (symbol === "/" || symbol === "\u00f7") {
+      if (hasThirdNumber) return null;
       operation = "div";
-      expectedAnswer = left / right;
+      expectedAnswer = number1 / number2;
     }
 
     if (!Number.isFinite(expectedAnswer)) return null;
 
     return {
-      left,
-      right,
+      number1,
+      number2,
+      number3,
+      left: number1,
+      right: number2,
       symbol,
       operation,
       expectedAnswer,
-      problem: `${left} ${symbol} ${right} = ?`
+      problem: hasThirdNumber
+        ? `${number1} ${symbol} ${number2} ${symbol} ${number3} = ?`
+        : `${number1} ${symbol} ${number2} = ?`
     };
   }
 
@@ -209,16 +221,6 @@
 
     return {
       maxDigits: maxDigitsMatch ? maxDigitsMatch[1].length : null,
-      autoNext: text.includes("Auto ON")
-        ? true
-        : text.includes("Auto OFF")
-          ? false
-          : null,
-      soundEnabled: text.includes("Sound ON")
-        ? true
-        : text.includes("Sound OFF")
-          ? false
-          : null,
       visibleOperation: problem ? problem.operation : null
     };
   }
@@ -249,25 +251,18 @@
     attemptCounter += 1;
 
     enqueue({
-      appName: CONFIG.appName,
-      attemptId: `${SESSION_ID}-${attemptCounter}`,
-      sessionId: SESSION_ID,
       timestamp: new Date().toISOString(),
       clientTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "",
       student: getStudent(),
-      source,
       result: isCorrect ? "correct" : "wrong",
       problem: problem.problem,
       operation: problem.operation,
-      left: problem.left,
-      right: problem.right,
+      number1: problem.number1,
+      number2: problem.number2,
+      number3: problem.number3,
       expectedAnswer: problem.expectedAnswer,
       studentAnswer,
-      rawAnswer,
-      questionNumber,
-      settings,
-      pageUrl: window.location.href,
-      userAgent: navigator.userAgent
+      settings
     });
   }
 

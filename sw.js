@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mathstar-v3';
+const CACHE_NAME = 'mathstar-v4';
 const FILES = [
   './MathStar.html',
   './manifest.json',
